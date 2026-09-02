@@ -40,7 +40,7 @@ enum BleConnectionState {
 
 @immutable
 final class BleRemoteId {
-  const new(this.str);
+  const BleRemoteId(this.str);
 
   final String str;
 
@@ -56,7 +56,11 @@ final class BleRemoteId {
 }
 
 final class BleException implements Exception {
-  const new({required this.operation, required this.message, this.code});
+  const BleException({
+    required this.operation,
+    required this.message,
+    this.code,
+  });
 
   final String operation;
   final String message;
@@ -72,7 +76,7 @@ final class BleException implements Exception {
 }
 
 final class BleAdvertisementData {
-  const new({
+  const BleAdvertisementData({
     required this.connectable,
     this.advName = '',
     this.txPowerLevel,
@@ -90,7 +94,7 @@ final class BleAdvertisementData {
   final Map<String, List<int>> serviceData;
   final List<String> serviceUuids;
 
-  factory fromMap(Map<dynamic, dynamic> map) {
+  factory BleAdvertisementData.fromMap(Map<dynamic, dynamic> map) {
     return BleAdvertisementData(
       connectable:
           map[BleChannelKey.connectable] == 1 ||
@@ -140,7 +144,7 @@ final class BleAdvertisementData {
 
 @immutable
 final class BleScanResult {
-  const new({
+  const BleScanResult({
     required this.device,
     required this.advertisementData,
     required this.rssi,
@@ -150,7 +154,7 @@ final class BleScanResult {
   final BleAdvertisementData advertisementData;
   final int rssi;
 
-  factory fromMap(Map<dynamic, dynamic> map) {
+  factory BleScanResult.fromMap(Map<dynamic, dynamic> map) {
     final String remoteId = map[BleChannelKey.remoteId] as String? ?? '';
 
     return BleScanResult(
@@ -174,7 +178,7 @@ final class BleScanResult {
 }
 
 final class BleConnectionEvent {
-  const new({
+  const BleConnectionEvent({
     required this.remoteId,
     required this.connectionState,
     this.disconnectReasonCode,
@@ -187,19 +191,20 @@ final class BleConnectionEvent {
   final int? disconnectReasonCode;
   final String? disconnectReasonString;
 
-  factory fromMap(Map<dynamic, dynamic> map) => BleConnectionEvent(
-    remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
-    connectionState: BleConnectionState.fromNative(
-      map[BleChannelKey.connectionState] as int? ?? 0,
-    ),
-    disconnectReasonCode: map[BleChannelKey.disconnectReasonCode] as int?,
-    disconnectReasonString:
-        map[BleChannelKey.disconnectReasonString] as String?,
-  );
+  factory BleConnectionEvent.fromMap(Map<dynamic, dynamic> map) =>
+      BleConnectionEvent(
+        remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
+        connectionState: BleConnectionState.fromNative(
+          map[BleChannelKey.connectionState] as int? ?? 0,
+        ),
+        disconnectReasonCode: map[BleChannelKey.disconnectReasonCode] as int?,
+        disconnectReasonString:
+            map[BleChannelKey.disconnectReasonString] as String?,
+      );
 }
 
 final class BleMtuEvent {
-  const new({
+  const BleMtuEvent({
     required this.remoteId,
     required this.mtu,
     required this.success,
@@ -213,7 +218,7 @@ final class BleMtuEvent {
   final int errorCode;
   final String errorString;
 
-  factory fromMap(Map<dynamic, dynamic> map) => BleMtuEvent(
+  factory BleMtuEvent.fromMap(Map<dynamic, dynamic> map) => BleMtuEvent(
     remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
     mtu: map[BleChannelKey.mtu] as int? ?? 23,
     success:
@@ -224,7 +229,7 @@ final class BleMtuEvent {
 }
 
 final class BleCharacteristicProperties {
-  const new({
+  const BleCharacteristicProperties({
     this.broadcast = false,
     this.read = false,
     this.writeWithoutResponse = false,
@@ -244,7 +249,7 @@ final class BleCharacteristicProperties {
   final bool authenticatedSignedWrites;
   final bool extendedProperties;
 
-  factory fromMap(Map<dynamic, dynamic> map) {
+  factory BleCharacteristicProperties.fromMap(Map<dynamic, dynamic> map) {
     bool flag(String key) => map[key] == 1 || map[key] == true;
 
     return BleCharacteristicProperties(
@@ -262,7 +267,7 @@ final class BleCharacteristicProperties {
 
 @immutable
 final class BleCharacteristic {
-  const new({
+  const BleCharacteristic({
     required this.remoteId,
     required this.serviceUuid,
     required this.characteristicUuid,
@@ -293,7 +298,7 @@ final class BleCharacteristic {
       BlePlatform.instance.characteristicProperties(this) ??
       discoveredProperties;
 
-  factory fromMap(Map<dynamic, dynamic> map) {
+  factory BleCharacteristic.fromMap(Map<dynamic, dynamic> map) {
     final Map<dynamic, dynamic> properties =
         map[BleChannelKey.properties] is Map
         ? map[BleChannelKey.properties] as Map
@@ -392,7 +397,7 @@ final class BleCharacteristic {
 
 @immutable
 final class BleService {
-  const new({
+  const BleService({
     required this.remoteId,
     required this.serviceUuid,
     required this.characteristics,
@@ -411,7 +416,7 @@ final class BleService {
 
   bool get isSecondary => primaryServiceUuid != null;
 
-  factory fromMap(Map<dynamic, dynamic> map) {
+  factory BleService.fromMap(Map<dynamic, dynamic> map) {
     final List<dynamic> characteristics =
         map[BleChannelKey.characteristics] as List<dynamic>? ??
         const <dynamic>[];
@@ -440,7 +445,7 @@ final class BleService {
 }
 
 final class BleDiscoveredServicesEvent {
-  const new({
+  const BleDiscoveredServicesEvent({
     required this.remoteId,
     required this.services,
     required this.success,
@@ -455,7 +460,7 @@ final class BleDiscoveredServicesEvent {
   final int errorCode;
   final String errorString;
 
-  factory fromMap(Map<dynamic, dynamic> map) {
+  factory BleDiscoveredServicesEvent.fromMap(Map<dynamic, dynamic> map) {
     final List<dynamic> services =
         map[BleChannelKey.services] as List<dynamic>? ?? const <dynamic>[];
 
@@ -474,7 +479,7 @@ final class BleDiscoveredServicesEvent {
 }
 
 final class BleCharacteristicWriteEvent {
-  const new({
+  const BleCharacteristicWriteEvent({
     required this.remoteId,
     required this.serviceUuid,
     required this.characteristicUuid,
@@ -497,7 +502,9 @@ final class BleCharacteristicWriteEvent {
   final int errorCode;
   final String errorString;
 
-  factory fromMap(Map<dynamic, dynamic> map) => BleCharacteristicWriteEvent(
+  factory BleCharacteristicWriteEvent.fromMap(
+    Map<dynamic, dynamic> map,
+  ) => BleCharacteristicWriteEvent(
     remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
     primaryServiceUuid: map[BleChannelKey.primaryServiceUuid] as String?,
     serviceUuid: map[BleChannelKey.serviceUuid] as String? ?? '',
@@ -512,11 +519,14 @@ final class BleCharacteristicWriteEvent {
 
 @immutable
 final class BleDevice {
-  const new({required this.remoteId, String? platformName, String? advName})
-    : _platformName = platformName,
-      _advName = advName;
+  const BleDevice({
+    required this.remoteId,
+    String? platformName,
+    String? advName,
+  }) : _platformName = platformName,
+       _advName = advName;
 
-  new fromId(String remoteId, {String? platformName, String? advName})
+  BleDevice.fromId(String remoteId, {String? platformName, String? advName})
     : this(
         remoteId: BleRemoteId(remoteId),
         platformName: platformName,
@@ -737,7 +747,7 @@ final class BleDevice {
 }
 
 final class _BleInitialValueTransformer<T> extends StreamTransformerBase<T, T> {
-  const new(this.initialValue);
+  const _BleInitialValueTransformer(this.initialValue);
 
   final T initialValue;
 

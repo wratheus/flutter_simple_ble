@@ -6,7 +6,7 @@ import 'package:flutter_simple_ble/ble_models.dart';
 import 'ble_platform_interface.dart';
 
 final class Ble {
-  new _();
+  Ble._();
 
   static BlePlatform get _platform => BlePlatform.instance;
 

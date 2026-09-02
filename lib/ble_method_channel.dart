@@ -11,7 +11,7 @@ import 'src/ble_channel_contract.dart';
 import 'ble_platform_interface.dart';
 
 final class BleMethodChannel extends BlePlatform {
-  new() {
+  BleMethodChannel() {
     methodChannel.setMethodCallHandler(_handleMethodCall);
   }
 
@@ -406,7 +406,7 @@ final class BleMethodChannel extends BlePlatform {
 }
 
 final class _BleReplayValue<T> {
-  new(this.latestValue);
+  _BleReplayValue(this.latestValue);
 
   final StreamController<T> _controller = StreamController<T>.broadcast();
 
@@ -426,7 +426,7 @@ final class _BleReplayValue<T> {
 }
 
 final class _BleReplayTransformer<T> extends StreamTransformerBase<T, T> {
-  const new(this.initialValue);
+  const _BleReplayTransformer(this.initialValue);
 
   final T initialValue;
 

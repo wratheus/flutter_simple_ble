@@ -68,7 +68,7 @@ abstract final class BleChannelKey {
 }
 
 final class RequestMtuRequest {
-  const new({required this.remoteId, required this.mtu});
+  const RequestMtuRequest({required this.remoteId, required this.mtu});
 
   final String remoteId;
   final int mtu;
@@ -80,7 +80,7 @@ final class RequestMtuRequest {
 }
 
 final class WriteCharacteristicRequest {
-  const new({
+  const WriteCharacteristicRequest({
     required this.remoteId,
     required this.serviceUuid,
     required this.characteristicUuid,

@@ -1,9 +1,13 @@
 name: flutter_simple_ble
-description: A simple Android and iOS BLE plugin for scanning, connecting, and writing characteristics.
-version: 0.1.0
+description: >-
+  A lightweight Flutter plugin for Bluetooth Low Energy scanning, connections,
+  service discovery, MTU handling, and characteristic writes on Android and iOS.
+version: 1.0.0
+
 homepage: https://github.com/wratheus/flutter_simple_ble
 repository: https://github.com/wratheus/flutter_simple_ble
 issue_tracker: https://github.com/wratheus/flutter_simple_ble/issues
+
 topics:
   - bluetooth
   - ble
@@ -11,8 +15,8 @@ topics:
   - ios
 
 environment:
-  sdk: ^3.13.0
-  flutter: ">=3.47.0"
+  sdk: ^3.12.0
+  flutter: '>=3.44.0'
 
 dependencies:
   flutter:

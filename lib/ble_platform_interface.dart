@@ -6,7 +6,7 @@ import 'package:flutter_simple_ble/ble_method_channel.dart';
 import 'package:flutter_simple_ble/ble_models.dart';
 
 abstract class BlePlatform extends PlatformInterface {
-  new() : super(token: _token);
+  BlePlatform() : super(token: _token);
 
   static final Object _token = Object();
 
