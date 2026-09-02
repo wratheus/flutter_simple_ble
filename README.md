@@ -1,6 +1,6 @@
 # flutter_simple_ble
 
-Flutter plugin for Android Bluetooth Low Energy (BLE). It provides adapter
+Flutter plugin for Android and iOS Bluetooth Low Energy (BLE). It provides adapter
 state, scanning, connections, service discovery, MTU negotiation, and
 characteristic writes.
 
@@ -47,10 +47,9 @@ advertisement, so callers can use standard stream operators such as `first`,
 
 ## Example app
 
-The `example/` directory is a complete Android Flutter app. The plugin handles
-the native permission request and lets you verify every currently supported
-operation: adapter state, scan, connect/disconnect, service discovery, MTU
-negotiation, and characteristic writes.
+The `example/` directory is a complete Android and iOS Flutter app. It lets you
+verify every currently supported operation: adapter state, scan,
+connect/disconnect, service discovery, MTU reporting, and characteristic writes.
 
 ```sh
 cd example
@@ -60,7 +59,8 @@ flutter run
 ## Platform support
 
 - Android API 24 or newer.
-- iOS is not implemented yet.
+- iOS 15 or newer. Add `NSBluetoothAlwaysUsageDescription` to the host app's
+  `Info.plist` before using Bluetooth.
 
 ## License
 
