@@ -72,19 +72,70 @@ final class BleException implements Exception {
 }
 
 final class BleAdvertisementData {
-  const new({required this.connectable, this.advName = '', this.txPowerLevel});
+  const new({
+    required this.connectable,
+    this.advName = '',
+    this.txPowerLevel,
+    this.appearance,
+    this.manufacturerData = const <int, List<int>>{},
+    this.serviceData = const <String, List<int>>{},
+    this.serviceUuids = const <String>[],
+  });
 
   final bool connectable;
   final String advName;
   final int? txPowerLevel;
+  final int? appearance;
+  final Map<int, List<int>> manufacturerData;
+  final Map<String, List<int>> serviceData;
+  final List<String> serviceUuids;
 
-  factory fromMap(Map<dynamic, dynamic> map) => BleAdvertisementData(
-    connectable:
-        map[BleChannelKey.connectable] == 1 ||
-        map[BleChannelKey.connectable] == true,
-    advName: map[BleChannelKey.advName] as String? ?? '',
-    txPowerLevel: map[BleChannelKey.txPowerLevel] as int?,
-  );
+  factory fromMap(Map<dynamic, dynamic> map) {
+    return BleAdvertisementData(
+      connectable:
+          map[BleChannelKey.connectable] == 1 ||
+          map[BleChannelKey.connectable] == true,
+      advName: map[BleChannelKey.advName] as String? ?? '',
+      txPowerLevel: map[BleChannelKey.txPowerLevel] as int?,
+      appearance: map[BleChannelKey.appearance] as int?,
+      manufacturerData: _intByteMap(map[BleChannelKey.manufacturerData]),
+      serviceData: _stringByteMap(map[BleChannelKey.serviceData]),
+      serviceUuids: _stringList(map[BleChannelKey.serviceUuids]),
+    );
+  }
+
+  static Map<int, List<int>> _intByteMap(Object? value) {
+    if (value is! Map) return const <int, List<int>>{};
+
+    final Map<int, List<int>> result = <int, List<int>>{};
+    for (final MapEntry<dynamic, dynamic> entry in value.entries) {
+      if (entry.key is int && entry.value is List<int>) {
+        result[entry.key as int] = List<int>.unmodifiable(
+          entry.value as List<int>,
+        );
+      }
+    }
+    return Map<int, List<int>>.unmodifiable(result);
+  }
+
+  static Map<String, List<int>> _stringByteMap(Object? value) {
+    if (value is! Map) return const <String, List<int>>{};
+
+    final Map<String, List<int>> result = <String, List<int>>{};
+    for (final MapEntry<dynamic, dynamic> entry in value.entries) {
+      if (entry.key is String && entry.value is List<int>) {
+        result[entry.key as String] = List<int>.unmodifiable(
+          entry.value as List<int>,
+        );
+      }
+    }
+    return Map<String, List<int>>.unmodifiable(result);
+  }
+
+  static List<String> _stringList(Object? value) {
+    if (value is! List) return const <String>[];
+    return List<String>.unmodifiable(value.whereType<String>());
+  }
 }
 
 @immutable
@@ -103,7 +154,11 @@ final class BleScanResult {
     final String remoteId = map[BleChannelKey.remoteId] as String? ?? '';
 
     return BleScanResult(
-      device: BleDevice.fromId(remoteId),
+      device: BleDevice.fromId(
+        remoteId,
+        platformName: map[BleChannelKey.platformName] as String?,
+        advName: map[BleChannelKey.advName] as String?,
+      ),
       advertisementData: BleAdvertisementData.fromMap(map),
       rssi: map[BleChannelKey.rssi] as int? ?? 0,
     );
@@ -457,15 +512,25 @@ final class BleCharacteristicWriteEvent {
 
 @immutable
 final class BleDevice {
-  const new({required this.remoteId});
+  const new({required this.remoteId, String? platformName, String? advName})
+    : _platformName = platformName,
+      _advName = advName;
 
-  new fromId(String remoteId) : remoteId = BleRemoteId(remoteId);
+  new fromId(String remoteId, {String? platformName, String? advName})
+    : this(
+        remoteId: BleRemoteId(remoteId),
+        platformName: platformName,
+        advName: advName,
+      );
 
   final BleRemoteId remoteId;
+  final String? _platformName;
+  final String? _advName;
 
-  String get platformName => BlePlatform.instance.platformName(remoteId);
+  String get platformName =>
+      _platformName ?? BlePlatform.instance.platformName(remoteId);
 
-  String get advName => BlePlatform.instance.advName(remoteId);
+  String get advName => _advName ?? BlePlatform.instance.advName(remoteId);
 
   bool get isConnected => BlePlatform.instance.isDeviceConnected(remoteId);
 
@@ -540,10 +605,6 @@ final class BleDevice {
   }
 
   Future<void> disconnect({int timeout = 35}) async {
-    if (isDisconnected) {
-      return;
-    }
-
     final Future<BleConnectionEvent> responseFuture = BlePlatform
         .instance
         .connectionState

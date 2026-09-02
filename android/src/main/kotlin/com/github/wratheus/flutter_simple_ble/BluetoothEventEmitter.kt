@@ -30,7 +30,7 @@ internal class BluetoothEventEmitter(callback: BleCore.EventCallback) {
         emit(BluetoothMapper.adapterState(state))
     }
 
-    fun scanResult(advertisement: AdvertisementMessage) {
+    fun scanResult(advertisement: Map<String, Any>) {
         emit(
             ScanResponseMessage(
                 success = true,

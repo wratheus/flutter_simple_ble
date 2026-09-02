@@ -46,7 +46,13 @@ internal class BleScanner(
     fun start(adapter: BluetoothAdapter, scanMode: Int): Boolean {
         if (scanning) return false
         val bluetoothLeScanner = adapter.bluetoothLeScanner ?: return false
-        val settings = ScanSettings.Builder().setScanMode(scanMode).build()
+        val settings = ScanSettings.Builder().apply {
+            setScanMode(scanMode)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
+                setLegacy(false)
+            }
+        }.build()
         bluetoothLeScanner.startScan(null, settings, callback)
         activeScanner = bluetoothLeScanner
         scanning = true

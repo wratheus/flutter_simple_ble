@@ -37,6 +37,10 @@ abstract final class BleChannelKey {
   static const String rssi = 'rssi';
   static const String connectable = 'connectable';
   static const String txPowerLevel = 'tx_power_level';
+  static const String appearance = 'appearance';
+  static const String manufacturerData = 'manufacturer_data';
+  static const String serviceData = 'service_data';
+  static const String serviceUuids = 'service_uuids';
   static const String connectionState = 'connection_state';
   static const String disconnectReasonCode = 'disconnect_reason_code';
   static const String disconnectReasonString = 'disconnect_reason_string';

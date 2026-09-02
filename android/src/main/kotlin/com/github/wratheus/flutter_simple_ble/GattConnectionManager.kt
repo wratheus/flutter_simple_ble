@@ -160,7 +160,7 @@ internal class GattConnectionManager(
                 BluetoothMapper.connectionState(
                     remoteId,
                     BluetoothProfile.STATE_DISCONNECTED,
-                    BluetoothGatt.GATT_SUCCESS,
+                    USER_CANCELED_ERROR_CODE,
                 ),
             )
         }
@@ -391,6 +391,7 @@ internal class GattConnectionManager(
 
     companion object {
         const val BUSY_ERROR = "another GATT operation is in progress"
+        const val USER_CANCELED_ERROR_CODE = 23789258
         private const val OPERATION_TIMEOUT_MILLIS = 20_000L
     }
 }

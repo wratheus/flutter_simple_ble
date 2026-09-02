@@ -80,27 +80,9 @@ internal data class AdapterStateMessage(val adapterState: Int) : BleChannelEvent
     )
 }
 
-internal data class AdvertisementMessage(
-    val remoteId: String,
-    val rssi: Int,
-    val connectable: Int,
-    val advName: String?,
-    val platformName: String?,
-    val txPowerLevel: Int?,
-) : BleChannelMessage {
-    override fun toMap(): Map<String, Any> = buildMap {
-        put(BleChannelContract.Key.REMOTE_ID, remoteId)
-        put(BleChannelContract.Key.RSSI, rssi)
-        put(BleChannelContract.Key.CONNECTABLE, connectable)
-        advName?.let { put(BleChannelContract.Key.ADV_NAME, it) }
-        platformName?.let { put(BleChannelContract.Key.PLATFORM_NAME, it) }
-        txPowerLevel?.let { put(BleChannelContract.Key.TX_POWER_LEVEL, it) }
-    }
-}
-
 internal data class ScanResponseMessage(
     val success: Boolean,
-    val advertisements: List<AdvertisementMessage>,
+    val advertisements: List<Map<String, Any>>,
     val errorCode: Int? = null,
     val errorString: String? = null,
 ) : BleChannelEventMessage {
@@ -108,7 +90,7 @@ internal data class ScanResponseMessage(
 
     override fun toMap(): Map<String, Any> = buildMap {
         put(BleChannelContract.Key.SUCCESS, if (success) 1 else 0)
-        put(BleChannelContract.Key.ADVERTISEMENTS, advertisements.map { it.toMap() })
+        put(BleChannelContract.Key.ADVERTISEMENTS, advertisements)
         errorCode?.let { put(BleChannelContract.Key.ERROR_CODE, it) }
         errorString?.let { put(BleChannelContract.Key.ERROR_STRING, it) }
     }

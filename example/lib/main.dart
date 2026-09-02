@@ -30,22 +30,29 @@ class BleInspectorPage extends StatefulWidget {
   State<BleInspectorPage> createState() => _BleInspectorPageState();
 }
 
+enum _ConnectionPhase { disconnected, connecting, connected, disconnecting }
+
 class _BleInspectorPageState extends State<BleInspectorPage> {
   final Map<BleRemoteId, BleScanResult> _scanResults =
       <BleRemoteId, BleScanResult>{};
+  final Set<BleRemoteId> _hiddenDeviceIds = <BleRemoteId>{};
   final TextEditingController _valueController = TextEditingController(
     text: '01',
   );
 
   StreamSubscription<BleAdapterState>? _adapterSubscription;
   StreamSubscription<BleScanResult>? _scanSubscription;
+  StreamSubscription<BleConnectionState>? _connectionSubscription;
   BleAdapterState _adapterState = BleAdapterState.unknown;
   BleDevice? _device;
+  _ConnectionPhase _connectionPhase = _ConnectionPhase.disconnected;
   BleCharacteristic? _selectedCharacteristic;
   List<BleService> _services = const <BleService>[];
   bool _isSupported = false;
   bool _isScanning = false;
   bool _isWorking = false;
+  bool _connectionCancelRequested = false;
+  String? _operationLabel;
   String? _error;
 
   @override
@@ -61,6 +68,7 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
   void dispose() {
     unawaited(_adapterSubscription?.cancel());
     unawaited(_scanSubscription?.cancel());
+    unawaited(_connectionSubscription?.cancel());
     _valueController.dispose();
     super.dispose();
   }
@@ -80,6 +88,7 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
 
     setState(() {
       _scanResults.clear();
+      _hiddenDeviceIds.clear();
       _error = null;
       _isScanning = true;
     });
@@ -88,7 +97,15 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
     subscription = Ble.scan(timeout: const Duration(seconds: 12)).listen(
       (BleScanResult result) {
         if (mounted) {
-          setState(() => _scanResults[result.device.remoteId] = result);
+          setState(() {
+            final BleRemoteId remoteId = result.device.remoteId;
+            if (_deviceNameOrNull(result.device) == null) {
+              _hiddenDeviceIds.add(remoteId);
+              return;
+            }
+            _hiddenDeviceIds.remove(remoteId);
+            _scanResults[remoteId] = result;
+          });
         }
       },
       onError: _setError,
@@ -110,16 +127,60 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
 
   Future<void> _connect(BleDevice device) async {
     await _stopScan();
-    _setWorking(true);
+    await _connectionSubscription?.cancel();
+    _connectionSubscription = device.connectionState.listen((
+      BleConnectionState state,
+    ) {
+      if (!mounted) return;
+      setState(() {
+        if (state == BleConnectionState.connected) {
+          _connectionPhase = _ConnectionPhase.connected;
+        } else if (_connectionPhase != _ConnectionPhase.connecting) {
+          _connectionPhase = _ConnectionPhase.disconnected;
+        }
+      });
+    }, onError: _setError);
+    if (!mounted) return;
+    setState(() {
+      _device = device;
+      _connectionPhase = _ConnectionPhase.connecting;
+      _connectionCancelRequested = false;
+      _services = const <BleService>[];
+      _selectedCharacteristic = null;
+      _error = null;
+    });
+    _setWorking(true, 'Connecting to ${_deviceName(device)}');
     try {
       await device.connect(mtu: null);
       if (mounted) {
         setState(() {
-          _device = device;
-          _services = const <BleService>[];
-          _selectedCharacteristic = null;
-          _error = null;
+          _connectionPhase = _ConnectionPhase.connected;
         });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _connectionPhase = _ConnectionPhase.disconnected);
+      }
+      if (!_connectionCancelRequested) _setError(error);
+    } finally {
+      _setWorking(false);
+    }
+  }
+
+  Future<void> _cancelConnection() async {
+    final BleDevice? device = _device;
+    if (device == null || _connectionPhase != _ConnectionPhase.connecting) {
+      return;
+    }
+    setState(() {
+      _connectionCancelRequested = true;
+      _connectionPhase = _ConnectionPhase.disconnecting;
+      _operationLabel = 'Cancelling connection';
+    });
+    try {
+      await device.disconnect();
+      if (mounted) {
+        setState(() => _connectionPhase = _ConnectionPhase.disconnected);
       }
     } catch (error) {
       _setError(error);
@@ -131,12 +192,15 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
   Future<void> _disconnect() async {
     final BleDevice? device = _device;
     if (device == null) return;
-    _setWorking(true);
+    if (mounted) {
+      setState(() => _connectionPhase = _ConnectionPhase.disconnecting);
+    }
+    _setWorking(true, 'Disconnecting from ${_deviceName(device)}');
     try {
       await device.disconnect();
       if (mounted) {
         setState(() {
-          _device = null;
+          _connectionPhase = _ConnectionPhase.disconnected;
           _services = const <BleService>[];
           _selectedCharacteristic = null;
         });
@@ -151,7 +215,7 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
   Future<void> _discoverServices() async {
     final BleDevice? device = _device;
     if (device == null) return;
-    _setWorking(true);
+    _setWorking(true, 'Discovering services');
     try {
       final List<BleService> services = await device.discoverServices();
       if (mounted) {
@@ -171,7 +235,7 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
   Future<void> _requestMtu() async {
     final BleDevice? device = _device;
     if (device == null) return;
-    _setWorking(true);
+    _setWorking(true, 'Requesting MTU');
     try {
       await device.requestMtu(247);
       if (mounted) setState(() => _error = null);
@@ -185,7 +249,7 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
   Future<void> _write() async {
     final BleCharacteristic? characteristic = _selectedCharacteristic;
     if (characteristic == null) return;
-    _setWorking(true);
+    _setWorking(true, 'Writing characteristic');
     try {
       final List<int> value = _parseHex(_valueController.text);
       await characteristic.write(
@@ -202,8 +266,13 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
     }
   }
 
-  void _setWorking(bool value) {
-    if (mounted) setState(() => _isWorking = value);
+  void _setWorking(bool value, [String? label]) {
+    if (mounted) {
+      setState(() {
+        _isWorking = value;
+        _operationLabel = value ? label : null;
+      });
+    }
   }
 
   void _setError(Object error, [StackTrace? stackTrace]) {
@@ -224,11 +293,17 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<BleScanResult> results = _scanResults.values.toList()
-      ..sort(
-        (BleScanResult first, BleScanResult second) =>
-            second.rssi.compareTo(first.rssi),
-      );
+    final List<BleScanResult> results =
+        _scanResults.values
+            .where(
+              (BleScanResult result) =>
+                  result.device.remoteId != _device?.remoteId,
+            )
+            .toList()
+          ..sort(
+            (BleScanResult first, BleScanResult second) =>
+                second.rssi.compareTo(first.rssi),
+          );
 
     return Scaffold(
       appBar: AppBar(
@@ -284,37 +359,22 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
                 ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Text(
-              'Devices',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          if (results.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Text('Start a scan to find nearby BLE devices.'),
-            ),
-          ...results.map(
-            (BleScanResult result) => Card(
-              child: ListTile(
-                title: Text(_deviceName(result.device)),
-                subtitle: Text(
-                  '${result.device.remoteId}\nRSSI ${result.rssi} dBm',
-                ),
-                isThreeLine: true,
-                trailing: TextButton(
-                  onPressed: _isWorking ? null : () => _connect(result.device),
-                  child: const Text('Connect'),
-                ),
+          if (_isWorking)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: <Widget>[
+                  const LinearProgressIndicator(),
+                  if (_operationLabel case final String label) Text(label),
+                ],
               ),
             ),
-          ),
           if (_device case final BleDevice device)
             Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: _connectedDeviceCard(context, device),
+              child: _deviceCard(context, device),
             ),
           if (_services.isNotEmpty)
             Padding(
@@ -331,40 +391,127 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
               padding: const EdgeInsets.only(top: 16),
               child: _writeCard(context, characteristic),
             ),
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 12,
+              runSpacing: 4,
+              children: <Widget>[
+                Text(
+                  'Named devices',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                if (_hiddenDeviceIds.isNotEmpty)
+                  Text(
+                    '${_hiddenDeviceIds.length} unnamed hidden',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+          ),
+          if (results.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                _isScanning
+                    ? 'Looking for named BLE devices...'
+                    : _hiddenDeviceIds.isEmpty
+                    ? 'Start a scan to find nearby BLE devices.'
+                    : 'No named BLE devices found.',
+              ),
+            ),
+          ...results.map(
+            (BleScanResult result) => Card(
+              child: ListTile(
+                title: Text(_deviceName(result.device)),
+                subtitle: Text(
+                  '${result.device.remoteId}\nRSSI ${result.rssi} dBm',
+                ),
+                isThreeLine: true,
+                trailing: TextButton(
+                  onPressed:
+                      _isWorking ||
+                          _connectionPhase == _ConnectionPhase.connected
+                      ? null
+                      : () => _connect(result.device),
+                  child: const Text('Connect'),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _connectedDeviceCard(BuildContext context, BleDevice device) => Card(
+  Widget _deviceCard(BuildContext context, BleDevice device) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 12,
         children: <Widget>[
-          Text(
-            'Connected device',
-            style: Theme.of(context).textTheme.titleLarge,
+          Row(
+            spacing: 12,
+            children: <Widget>[
+              if (_connectionPhase == _ConnectionPhase.connecting ||
+                  _connectionPhase == _ConnectionPhase.disconnecting)
+                const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  _connectionPhase == _ConnectionPhase.connected
+                      ? Icons.bluetooth_connected
+                      : Icons.bluetooth_disabled,
+                ),
+              Expanded(
+                child: Text(
+                  _deviceName(device),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              Text(_connectionLabel(_connectionPhase)),
+            ],
           ),
           Text(device.remoteId.str),
-          Text('MTU: ${device.mtuNow}'),
+          if (_connectionPhase == _ConnectionPhase.connected)
+            Text('MTU: ${device.mtuNow}'),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
               OutlinedButton(
-                onPressed: _isWorking ? null : _discoverServices,
+                onPressed:
+                    _isWorking || _connectionPhase != _ConnectionPhase.connected
+                    ? null
+                    : _discoverServices,
                 child: const Text('Discover services'),
               ),
               OutlinedButton(
-                onPressed: _isWorking ? null : _requestMtu,
+                onPressed:
+                    _isWorking || _connectionPhase != _ConnectionPhase.connected
+                    ? null
+                    : _requestMtu,
                 child: const Text('Request MTU 247'),
               ),
-              TextButton(
-                onPressed: _isWorking ? null : _disconnect,
-                child: const Text('Disconnect'),
-              ),
+              if (_connectionPhase == _ConnectionPhase.connected)
+                TextButton(
+                  onPressed: _isWorking ? null : _disconnect,
+                  child: const Text('Disconnect'),
+                )
+              else if (_connectionPhase == _ConnectionPhase.connecting)
+                TextButton(
+                  onPressed: _cancelConnection,
+                  child: const Text('Cancel connection'),
+                )
+              else if (_connectionPhase == _ConnectionPhase.disconnected)
+                TextButton(
+                  onPressed: _isWorking ? null : () => _connect(device),
+                  child: const Text('Reconnect'),
+                ),
             ],
           ),
         ],
@@ -434,10 +581,23 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
       characteristic.properties.writeWithoutResponse;
 
   String _deviceName(BleDevice device) {
-    if (device.advName.isNotEmpty) return device.advName;
-    if (device.platformName.isNotEmpty) return device.platformName;
-    return 'Unnamed device';
+    return _deviceNameOrNull(device) ?? 'Unnamed device';
   }
+
+  String? _deviceNameOrNull(BleDevice device) {
+    final String advName = device.advName.trim();
+    if (advName.isNotEmpty) return advName;
+    final String platformName = device.platformName.trim();
+    if (platformName.isNotEmpty) return platformName;
+    return null;
+  }
+
+  String _connectionLabel(_ConnectionPhase phase) => switch (phase) {
+    _ConnectionPhase.disconnected => 'Disconnected',
+    _ConnectionPhase.connecting => 'Connecting',
+    _ConnectionPhase.connected => 'Connected',
+    _ConnectionPhase.disconnecting => 'Disconnecting',
+  };
 
   String _propertiesLabel(BleCharacteristicProperties properties) {
     final List<String> labels = <String>[];
