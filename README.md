@@ -1,3 +1,5 @@
+https://pub.dev/packages/flutter_simple_ble
+
 # flutter_simple_ble
 
 Flutter plugin for Android and iOS Bluetooth Low Energy (BLE). It provides adapter
