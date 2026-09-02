@@ -1,8 +1,10 @@
+// SPDX-FileCopyrightText: 2026 Aleksandr <https://github.com/Wratheus>
+// SPDX-License-Identifier: BSD-3-Clause
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_simple_ble/flutter_simple_ble.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(const BleExampleApp());
 
@@ -72,28 +74,7 @@ class _BleInspectorPageState extends State<BleInspectorPage> {
     }
   }
 
-  Future<bool> _requestPermissions() async {
-    final Map<Permission, PermissionStatus> statuses = await <Permission>[
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.locationWhenInUse,
-    ].request();
-    if (statuses[Permission.bluetoothScan]?.isGranted == true &&
-        statuses[Permission.bluetoothConnect]?.isGranted == true) {
-      return true;
-    }
-
-    _setError(
-      StateError(
-        'Bluetooth permissions are required. On Android 11 and older, '
-        'also allow location access.',
-      ),
-    );
-    return false;
-  }
-
   Future<void> _startScan() async {
-    if (!await _requestPermissions()) return;
     await _stopScan();
     if (!mounted) return;
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Aleksandr <https://github.com/Wratheus>
+// SPDX-License-Identifier: BSD-3-Clause
+
 package com.github.wratheus.flutter_simple_ble
 
 import android.Manifest
@@ -126,6 +129,16 @@ internal class BleCore {
             onceResult.error("invalidArguments", exception.message, null)
         } catch (exception: RuntimeException) {
             onceResult.error("androidException", exception.message, null)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun emitAdapterState() {
+        val currentAdapter = adapter
+        when {
+            currentAdapter == null -> emitter?.adapterStateChanged(BluetoothAdapter.ERROR)
+            !hasConnectPermission() -> emitter?.emit(BluetoothMapper.unauthorizedAdapterState())
+            else -> emitter?.adapterStateChanged(currentAdapter.state)
         }
     }
 

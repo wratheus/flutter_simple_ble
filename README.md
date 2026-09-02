@@ -12,15 +12,15 @@ import 'package:flutter_simple_ble/flutter_simple_ble.dart';
 
 ## Android permissions
 
-The plugin declares the required permissions in its Android manifest, but an
-application must request runtime permissions before using BLE:
+The plugin declares and requests the required runtime permissions on Android
+when a BLE operation first needs them. No Flutter-side permission package is
+required:
 
 - Android 12 and newer: `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT`.
 - Android 11 and older: location permission is required for scanning.
 
-The plugin does not depend on a particular permission package. Request these
-permissions with the solution used by the host application, then check
-`await Ble.isSupported` and listen to `Ble.adapterState`.
+The system dialog is shown only while the plugin has a foreground Android
+activity. Calls made while a permission dialog is open wait for its result.
 
 ## Usage
 
@@ -47,10 +47,10 @@ advertisement, so callers can use standard stream operators such as `first`,
 
 ## Example app
 
-The `example/` directory is a complete Android Flutter app. It requests the
-runtime permissions and lets you verify every currently supported operation:
-adapter state, scan, connect/disconnect, service discovery, MTU negotiation,
-and characteristic writes.
+The `example/` directory is a complete Android Flutter app. The plugin handles
+the native permission request and lets you verify every currently supported
+operation: adapter state, scan, connect/disconnect, service discovery, MTU
+negotiation, and characteristic writes.
 
 ```sh
 cd example
@@ -61,3 +61,11 @@ flutter run
 
 - Android API 24 or newer.
 - iOS is not implemented yet.
+
+## License
+
+Copyright 2026 Aleksandr ([Wratheus](https://github.com/Wratheus)).
+
+Licensed under the [BSD 3-Clause License](LICENSE). You may use, modify, and
+redistribute this project, provided that you retain its copyright, license, and
+disclaimer notices. The attribution is also recorded in [NOTICE](NOTICE).

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Aleksandr <https://github.com/Wratheus>
+// SPDX-License-Identifier: BSD-3-Clause
+
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:flutter_simple_ble/ble_method_channel.dart';
 import 'package:flutter_simple_ble/ble_models.dart';
