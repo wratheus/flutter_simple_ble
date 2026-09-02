@@ -19,10 +19,6 @@ abstract class BlePlatform extends PlatformInterface {
 
   Stream<BleAdapterState> get adapterStateChanged;
 
-  Stream<List<BleScanResult>> get scanResults;
-
-  Stream<bool> get isScanning;
-
   Stream<BleConnectionEvent> get connectionState;
 
   Stream<BleDiscoveredServicesEvent> get discoveredServices;
@@ -32,10 +28,6 @@ abstract class BlePlatform extends PlatformInterface {
   Stream<BleCharacteristicWriteEvent> get characteristicWritten;
 
   BleAdapterState get adapterStateNow;
-
-  bool get isScanningNow;
-
-  List<BleScanResult> get lastScanResults;
 
   List<BleDevice> get connectedDevices;
 
@@ -57,9 +49,7 @@ abstract class BlePlatform extends PlatformInterface {
 
   Future<BleAdapterState> getAdapterState();
 
-  Future<bool> startScan({Duration? timeout});
-
-  Future<bool> stopScan();
+  Stream<BleScanResult> scan({Duration? timeout});
 
   Future<bool> connect(String remoteId);
 

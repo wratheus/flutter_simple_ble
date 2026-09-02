@@ -25,40 +25,37 @@ permissions with the solution used by the host application, then check
 ## Usage
 
 ```dart
-import 'dart:async';
-
 import 'package:flutter_simple_ble/flutter_simple_ble.dart';
 
 Future<void> connectToFirstDevice() async {
-  final Completer<BleDevice> firstDevice = Completer<BleDevice>();
-  late final StreamSubscription<List<BleScanResult>> subscription;
+  final BleScanResult result = await Ble.scan(
+    timeout: const Duration(seconds: 10),
+  ).first;
 
-  subscription = Ble.scanResults.listen((List<BleScanResult> results) {
-    if (results.isNotEmpty && !firstDevice.isCompleted) {
-      firstDevice.complete(results.first.device);
-    }
-  });
-
-  try {
-    await Ble.startScan(timeout: const Duration(seconds: 10));
-    final BleDevice device = await firstDevice.future.timeout(
-      const Duration(seconds: 10),
-    );
-
-    await Ble.stopScan();
-    await device.connect();
-    final List<BleService> services = await device.discoverServices();
-    // Select a characteristic from services, then write to it.
-    // await characteristic.write(<int>[0x01]);
-  } finally {
-    await Ble.stopScan();
-    await subscription.cancel();
-  }
+  final BleDevice device = result.device;
+  await device.connect();
+  final List<BleService> services = await device.discoverServices();
+  // Select a writable characteristic from services, then write to it.
+  // await characteristic.write(<int>[0x01]);
 }
 ```
 
-`Ble.scanResults` contains the accumulated latest result for each device.
-Use `Ble.connectedDevices` or `device.connectionState` to observe connections.
+`Ble.scan()` starts scanning when it is listened to and stops when its last
+listener is cancelled, or when its timeout elapses. Each event is one current
+advertisement, so callers can use standard stream operators such as `first`,
+`where`, and `takeWhile`.
+
+## Example app
+
+The `example/` directory is a complete Android Flutter app. It requests the
+runtime permissions and lets you verify every currently supported operation:
+adapter state, scan, connect/disconnect, service discovery, MTU negotiation,
+and characteristic writes.
+
+```sh
+cd example
+flutter run
+```
 
 ## Platform support
 

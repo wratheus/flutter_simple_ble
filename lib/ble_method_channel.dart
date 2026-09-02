@@ -17,18 +17,14 @@ final class BleMethodChannel extends BlePlatform {
     BleChannelContract.channelName,
   );
 
-  final _BleReplayValue<BleAdapterState> _adapterState =
-      _BleReplayValue(BleAdapterState.unknown);
-
-  final _BleReplayValue<bool> _isScanning = _BleReplayValue(
-    false,
+  final _BleReplayValue<BleAdapterState> _adapterState = _BleReplayValue(
+    BleAdapterState.unknown,
   );
 
-  final _BleReplayValue<List<BleScanResult>> _scanResults =
-      _BleReplayValue(const <BleScanResult>[]);
+  final StreamController<BleScanResult> _scanResults =
+      StreamController<BleScanResult>.broadcast();
 
-  final StreamController<BleConnectionEvent>
-  _connectionStateController =
+  final StreamController<BleConnectionEvent> _connectionStateController =
       StreamController<BleConnectionEvent>.broadcast();
 
   final StreamController<BleDiscoveredServicesEvent>
@@ -42,11 +38,9 @@ final class BleMethodChannel extends BlePlatform {
   _characteristicWrittenController =
       StreamController<BleCharacteristicWriteEvent>.broadcast();
 
-  final Map<BleRemoteId, BleConnectionEvent>
-  _connectionStates = {};
+  final Map<BleRemoteId, BleConnectionEvent> _connectionStates = {};
 
-  final Map<BleRemoteId, BleDiscoveredServicesEvent>
-  _knownServices = {};
+  final Map<BleRemoteId, BleDiscoveredServicesEvent> _knownServices = {};
 
   final Map<BleRemoteId, BleMtuEvent> _mtuValues = {};
 
@@ -54,27 +48,15 @@ final class BleMethodChannel extends BlePlatform {
 
   final Map<BleRemoteId, String> _advNames = {};
 
-  Timer? _scanTimeout;
+  Future<void>? _activeScan;
+  int _scanListeners = 0;
+  bool _isScanning = false;
 
   @override
-  Stream<BleAdapterState> get adapterStateChanged =>
-      _adapterState.stream;
+  Stream<BleAdapterState> get adapterStateChanged => _adapterState.stream;
 
   @override
   BleAdapterState get adapterStateNow => _adapterState.latestValue;
-
-  @override
-  Stream<bool> get isScanning => _isScanning.stream;
-
-  @override
-  bool get isScanningNow => _isScanning.latestValue;
-
-  @override
-  Stream<List<BleScanResult>> get scanResults => _scanResults.stream;
-
-  @override
-  List<BleScanResult> get lastScanResults =>
-      List<BleScanResult>.unmodifiable(_scanResults.latestValue);
 
   @override
   Stream<BleConnectionEvent> get connectionState =>
@@ -97,8 +79,7 @@ final class BleMethodChannel extends BlePlatform {
 
     for (final MapEntry<BleRemoteId, BleConnectionEvent> entry
         in _connectionStates.entries) {
-      if (entry.value.connectionState ==
-          BleConnectionState.connected) {
+      if (entry.value.connectionState == BleConnectionState.connected) {
         result.add(BleDevice(remoteId: entry.key));
       }
     }
@@ -107,8 +88,7 @@ final class BleMethodChannel extends BlePlatform {
   }
 
   @override
-  String platformName(BleRemoteId remoteId) =>
-      _platformNames[remoteId] ?? '';
+  String platformName(BleRemoteId remoteId) => _platformNames[remoteId] ?? '';
 
   @override
   String advName(BleRemoteId remoteId) => _advNames[remoteId] ?? '';
@@ -123,8 +103,7 @@ final class BleMethodChannel extends BlePlatform {
 
   @override
   List<BleService> servicesForDevice(BleRemoteId remoteId) {
-    final BleDiscoveredServicesEvent? result =
-        _knownServices[remoteId];
+    final BleDiscoveredServicesEvent? result = _knownServices[remoteId];
 
     if (result == null) {
       return const <BleService>[];
@@ -183,56 +162,56 @@ final class BleMethodChannel extends BlePlatform {
   }
 
   @override
-  Future<bool> startScan({Duration? timeout}) async {
-    if (isScanningNow) {
-      await stopScan();
-    }
-
-    _scanTimeout?.cancel();
-
-    _scanResults.add(const <BleScanResult>[]);
-
-    _isScanning.add(true);
+  Stream<BleScanResult> scan({Duration? timeout}) async* {
+    _scanListeners++;
+    _activeScan ??= _startScan();
 
     try {
-      final bool started =
-          await methodChannel.invokeMethod<bool>(BleChannelMethod.startScan) ??
-          false;
+      await _activeScan;
 
-      if (!started) {
-        _isScanning.add(false);
-        return false;
+      if (timeout == null) {
+        yield* _scanResults.stream;
+      } else {
+        yield* _scanResults.stream.timeout(
+          timeout,
+          onTimeout: (EventSink<BleScanResult> sink) => sink.close(),
+        );
       }
-
-      if (timeout != null) {
-        _scanTimeout = Timer(timeout, () {
-          stopScan().ignore();
-        });
+    } finally {
+      _scanListeners--;
+      if (_scanListeners == 0) {
+        _activeScan = null;
+        await _stopScan();
       }
-
-      return true;
-    } catch (_) {
-      _isScanning.add(false);
-      rethrow;
     }
   }
 
-  @override
-  Future<bool> stopScan() async {
-    _scanTimeout?.cancel();
-    _scanTimeout = null;
+  Future<void> _startScan() async {
+    if (_isScanning) {
+      return;
+    }
 
-    if (!isScanningNow) {
-      return false;
+    final bool started =
+        await methodChannel.invokeMethod<bool>(BleChannelMethod.startScan) ??
+        false;
+    if (!started) {
+      throw const BleException(
+        operation: 'startScan',
+        message: 'native startScan returned false',
+      );
+    }
+    _isScanning = true;
+  }
+
+  Future<void> _stopScan() async {
+    if (!_isScanning) {
+      return;
     }
 
     try {
-      return await methodChannel.invokeMethod<bool>(
-            BleChannelMethod.stopScan,
-          ) ??
-          false;
+      await methodChannel.invokeMethod<bool>(BleChannelMethod.stopScan);
     } finally {
-      _isScanning.add(false);
+      _isScanning = false;
     }
   }
 
@@ -297,16 +276,15 @@ final class BleMethodChannel extends BlePlatform {
 
     switch (call.method) {
       case BleChannelEvent.adapterStateChanged:
-        final BleAdapterState state =
-            BleAdapterState.fromNative(
-              map[BleChannelKey.adapterState] as int? ?? 0,
-            );
+        final BleAdapterState state = BleAdapterState.fromNative(
+          map[BleChannelKey.adapterState] as int? ?? 0,
+        );
 
         _adapterState.add(state);
 
         if (state == BleAdapterState.off ||
             state == BleAdapterState.turningOff) {
-          _isScanning.add(false);
+          _isScanning = false;
 
           _connectionStates.clear();
           _knownServices.clear();
@@ -317,7 +295,7 @@ final class BleMethodChannel extends BlePlatform {
 
       case BleChannelEvent.scanResponse:
         if (map[BleChannelKey.success] == 0) {
-          _isScanning.add(false);
+          _isScanning = false;
 
           _scanResults.addError(
             BleException(
@@ -334,9 +312,6 @@ final class BleMethodChannel extends BlePlatform {
         final List<dynamic> advertisements =
             map[BleChannelKey.advertisements] as List<dynamic>? ??
             const <dynamic>[];
-
-        final List<BleScanResult> output =
-            List<BleScanResult>.from(_scanResults.latestValue);
 
         for (final dynamic raw in advertisements) {
           if (raw is! Map) {
@@ -364,28 +339,15 @@ final class BleMethodChannel extends BlePlatform {
             _advNames[remoteId] = advName;
           }
 
-          final BleScanResult result = BleScanResult.fromMap(
-            raw,
-          );
+          final BleScanResult result = BleScanResult.fromMap(raw);
 
-          final int index = output.indexWhere(
-            (item) => item.device.remoteId == result.device.remoteId,
-          );
-
-          if (index >= 0) {
-            output[index] = result;
-          } else {
-            output.add(result);
-          }
+          _scanResults.add(result);
         }
-
-        _scanResults.add(List<BleScanResult>.unmodifiable(output));
 
         return;
 
       case BleChannelEvent.connectionStateChanged:
-        final BleConnectionEvent event =
-            BleConnectionEvent.fromMap(map);
+        final BleConnectionEvent event = BleConnectionEvent.fromMap(map);
 
         _connectionStates[event.remoteId] = event;
 
@@ -447,9 +409,8 @@ final class _BleReplayValue<T> {
 
   T latestValue;
 
-  Stream<T> get stream => _controller.stream.transform(
-    _BleReplayTransformer<T>(latestValue),
-  );
+  Stream<T> get stream =>
+      _controller.stream.transform(_BleReplayTransformer<T>(latestValue));
 
   void add(T value) {
     latestValue = value;
@@ -461,8 +422,7 @@ final class _BleReplayValue<T> {
   }
 }
 
-final class _BleReplayTransformer<T>
-    extends StreamTransformerBase<T, T> {
+final class _BleReplayTransformer<T> extends StreamTransformerBase<T, T> {
   const new(this.initialValue);
 
   final T initialValue;

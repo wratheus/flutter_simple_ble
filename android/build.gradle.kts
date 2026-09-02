@@ -3,12 +3,11 @@ version = "1.0"
 
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "com.github.wratheus.flutter_simple_ble"
-    compileSdk = 37
+    compileSdk = flutter.compileSdkVersion
 
     defaultConfig {
         minSdk = 24
@@ -27,9 +26,7 @@ android {
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(
-            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
-        )
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 

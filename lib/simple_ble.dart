@@ -20,41 +20,20 @@ final class Ble {
     yield* _platform.adapterStateChanged;
   }
 
-  static BleAdapterState get adapterStateNow =>
-      _platform.adapterStateNow;
+  static BleAdapterState get adapterStateNow => _platform.adapterStateNow;
 
-  static Stream<bool> get isScanning => _platform.isScanning;
+  /// Scans for nearby BLE devices until the listener cancels the stream.
+  ///
+  /// When [timeout] elapses, the stream closes and scanning stops if it has no
+  /// remaining listeners. Request the required Android runtime permissions
+  /// before listening.
+  static Stream<BleScanResult> scan({Duration? timeout}) =>
+      _platform.scan(timeout: timeout);
 
-  static bool get isScanningNow => _platform.isScanningNow;
-
-  static Stream<List<BleScanResult>> get scanResults =>
-      _platform.scanResults;
-
-  static List<BleScanResult> get lastScanResults =>
-      _platform.lastScanResults;
-
-  static List<BleDevice> get connectedDevices =>
-      _platform.connectedDevices;
+  static List<BleDevice> get connectedDevices => _platform.connectedDevices;
 
   static Stream<List<BleDevice>> get connectedDevicesChanged async* {
     yield connectedDevices;
     yield* _platform.connectionState.map((_) => connectedDevices);
-  }
-
-  /// Starts a BLE scan.
-  ///
-  /// Request the required Android runtime permissions before calling this.
-  static Future<void> startScan({Duration? timeout}) async {
-    final bool started = await _platform.startScan(timeout: timeout);
-    if (!started) {
-      throw const BleException(
-        operation: 'startScan',
-        message: 'native startScan returned false',
-      );
-    }
-  }
-
-  static Future<void> stopScan() async {
-    await _platform.stopScan();
   }
 }

@@ -43,8 +43,7 @@ final class BleRemoteId {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BleRemoteId && other.str == str;
+      identical(this, other) || other is BleRemoteId && other.str == str;
 
   @override
   int get hashCode => str.hashCode;
@@ -131,9 +130,7 @@ final class BleConnectionEvent {
   final String? disconnectReasonString;
 
   factory fromMap(Map<dynamic, dynamic> map) => BleConnectionEvent(
-    remoteId: BleRemoteId(
-      map[BleChannelKey.remoteId] as String? ?? '',
-    ),
+    remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
     connectionState: BleConnectionState.fromNative(
       map[BleChannelKey.connectionState] as int? ?? 0,
     ),
@@ -159,9 +156,7 @@ final class BleMtuEvent {
   final String errorString;
 
   factory fromMap(Map<dynamic, dynamic> map) => BleMtuEvent(
-    remoteId: BleRemoteId(
-      map[BleChannelKey.remoteId] as String? ?? '',
-    ),
+    remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
     mtu: map[BleChannelKey.mtu] as int? ?? 23,
     success:
         map[BleChannelKey.success] == 1 || map[BleChannelKey.success] == true,
@@ -247,17 +242,13 @@ final class BleCharacteristic {
         : const <dynamic, dynamic>{};
 
     return BleCharacteristic(
-      remoteId: BleRemoteId(
-        map[BleChannelKey.remoteId] as String? ?? '',
-      ),
+      remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
       primaryServiceUuid: map[BleChannelKey.primaryServiceUuid] as String?,
       serviceUuid: map[BleChannelKey.serviceUuid] as String? ?? '',
       characteristicUuid:
           map[BleChannelKey.characteristicUuid] as String? ?? '',
       instanceId: map[BleChannelKey.instanceId] as int? ?? 0,
-      discoveredProperties: BleCharacteristicProperties.fromMap(
-        properties,
-      ),
+      discoveredProperties: BleCharacteristicProperties.fromMap(properties),
     );
   }
 
@@ -273,8 +264,10 @@ final class BleCharacteristic {
       );
     }
 
-    final Future<BleCharacteristicWriteEvent> responseFuture =
-        BlePlatform.instance.characteristicWritten.firstWhere(
+    final Future<BleCharacteristicWriteEvent> responseFuture = BlePlatform
+        .instance
+        .characteristicWritten
+        .firstWhere(
           (event) =>
               event.remoteId == remoteId &&
               event.primaryServiceUuid == primaryServiceUuid &&
@@ -283,16 +276,15 @@ final class BleCharacteristic {
               event.instanceId == instanceId,
         );
 
-    final bool started = await BlePlatform.instance
-        .writeCharacteristic(
-          remoteId: remoteId.str,
-          primaryServiceUuid: primaryServiceUuid,
-          serviceUuid: serviceUuid,
-          characteristicUuid: characteristicUuid,
-          instanceId: instanceId,
-          value: value,
-          withoutResponse: withoutResponse,
-        );
+    final bool started = await BlePlatform.instance.writeCharacteristic(
+      remoteId: remoteId.str,
+      primaryServiceUuid: primaryServiceUuid,
+      serviceUuid: serviceUuid,
+      characteristicUuid: characteristicUuid,
+      instanceId: instanceId,
+      value: value,
+      withoutResponse: withoutResponse,
+    );
 
     if (!started) {
       throw const BleException(
@@ -301,16 +293,15 @@ final class BleCharacteristic {
       );
     }
 
-    final BleCharacteristicWriteEvent response = await responseFuture
-        .timeout(
-          Duration(seconds: timeout),
-          onTimeout: () {
-            throw BleException(
-              operation: 'writeCharacteristic',
-              message: 'Timed out after ${timeout}s',
-            );
-          },
+    final BleCharacteristicWriteEvent response = await responseFuture.timeout(
+      Duration(seconds: timeout),
+      onTimeout: () {
+        throw BleException(
+          operation: 'writeCharacteristic',
+          message: 'Timed out after ${timeout}s',
         );
+      },
+    );
 
     if (!response.success) {
       throw BleException(
@@ -368,9 +359,7 @@ final class BleService {
         const <dynamic>[];
 
     return BleService(
-      remoteId: BleRemoteId(
-        map[BleChannelKey.remoteId] as String? ?? '',
-      ),
+      remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
       primaryServiceUuid: map[BleChannelKey.primaryServiceUuid] as String?,
       serviceUuid: map[BleChannelKey.serviceUuid] as String? ?? '',
       characteristics: characteristics
@@ -413,9 +402,7 @@ final class BleDiscoveredServicesEvent {
         map[BleChannelKey.services] as List<dynamic>? ?? const <dynamic>[];
 
     return BleDiscoveredServicesEvent(
-      remoteId: BleRemoteId(
-        map[BleChannelKey.remoteId] as String? ?? '',
-      ),
+      remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
       services: services
           .whereType<Map<String, dynamic>>()
           .map(BleService.fromMap)
@@ -452,12 +439,8 @@ final class BleCharacteristicWriteEvent {
   final int errorCode;
   final String errorString;
 
-  factory fromMap(
-    Map<dynamic, dynamic> map,
-  ) => BleCharacteristicWriteEvent(
-    remoteId: BleRemoteId(
-      map[BleChannelKey.remoteId] as String? ?? '',
-    ),
+  factory fromMap(Map<dynamic, dynamic> map) => BleCharacteristicWriteEvent(
+    remoteId: BleRemoteId(map[BleChannelKey.remoteId] as String? ?? ''),
     primaryServiceUuid: map[BleChannelKey.primaryServiceUuid] as String?,
     serviceUuid: map[BleChannelKey.serviceUuid] as String? ?? '',
     characteristicUuid: map[BleChannelKey.characteristicUuid] as String? ?? '',
@@ -477,13 +460,11 @@ final class BleDevice {
 
   final BleRemoteId remoteId;
 
-  String get platformName =>
-      BlePlatform.instance.platformName(remoteId);
+  String get platformName => BlePlatform.instance.platformName(remoteId);
 
   String get advName => BlePlatform.instance.advName(remoteId);
 
-  bool get isConnected =>
-      BlePlatform.instance.isDeviceConnected(remoteId);
+  bool get isConnected => BlePlatform.instance.isDeviceConnected(remoteId);
 
   bool get isDisconnected => !isConnected;
 
@@ -500,11 +481,7 @@ final class BleDevice {
     return BlePlatform.instance.connectionState
         .where((event) => event.remoteId == remoteId)
         .map((event) => event.connectionState)
-        .transform(
-          _BleInitialValueTransformer<BleConnectionState>(
-            initial,
-          ),
-        );
+        .transform(_BleInitialValueTransformer<BleConnectionState>(initial));
   }
 
   Stream<int> get mtu {
@@ -532,9 +509,7 @@ final class BleDevice {
         .connectionState
         .firstWhere((event) => event.remoteId == remoteId);
 
-    final bool changed = await BlePlatform.instance.connect(
-      remoteId.str,
-    );
+    final bool changed = await BlePlatform.instance.connect(remoteId.str);
 
     if (changed) {
       final BleConnectionEvent response = await stateFuture.timeout(
@@ -547,8 +522,7 @@ final class BleDevice {
         },
       );
 
-      if (response.connectionState ==
-          BleConnectionState.disconnected) {
+      if (response.connectionState == BleConnectionState.disconnected) {
         throw BleException(
           operation: 'connect',
           code: response.disconnectReasonCode,
@@ -567,16 +541,16 @@ final class BleDevice {
       return;
     }
 
-    final Future<BleConnectionEvent> responseFuture =
-        BlePlatform.instance.connectionState.firstWhere(
+    final Future<BleConnectionEvent> responseFuture = BlePlatform
+        .instance
+        .connectionState
+        .firstWhere(
           (event) =>
               event.remoteId == remoteId &&
               event.connectionState == BleConnectionState.disconnected,
         );
 
-    final bool changed = await BlePlatform.instance.disconnect(
-      remoteId.str,
-    );
+    final bool changed = await BlePlatform.instance.disconnect(remoteId.str);
 
     if (changed) {
       await responseFuture.timeout(
@@ -599,10 +573,10 @@ final class BleDevice {
       );
     }
 
-    final Future<BleDiscoveredServicesEvent> responseFuture =
-        BlePlatform.instance.discoveredServices.firstWhere(
-          (event) => event.remoteId == remoteId,
-        );
+    final Future<BleDiscoveredServicesEvent> responseFuture = BlePlatform
+        .instance
+        .discoveredServices
+        .firstWhere((event) => event.remoteId == remoteId);
 
     final bool started = await BlePlatform.instance.discoverServices(
       remoteId.str,
@@ -615,16 +589,15 @@ final class BleDevice {
       );
     }
 
-    final BleDiscoveredServicesEvent response = await responseFuture
-        .timeout(
-          Duration(seconds: timeout),
-          onTimeout: () {
-            throw BleException(
-              operation: 'discoverServices',
-              message: 'Timed out after ${timeout}s',
-            );
-          },
+    final BleDiscoveredServicesEvent response = await responseFuture.timeout(
+      Duration(seconds: timeout),
+      onTimeout: () {
+        throw BleException(
+          operation: 'discoverServices',
+          message: 'Timed out after ${timeout}s',
         );
+      },
+    );
 
     if (!response.success) {
       throw BleException(
@@ -647,9 +620,7 @@ final class BleDevice {
       );
     }
 
-    final Future<BleMtuEvent> responseFuture = BlePlatform
-        .instance
-        .mtuChanged
+    final Future<BleMtuEvent> responseFuture = BlePlatform.instance.mtuChanged
         .firstWhere((event) => event.remoteId == remoteId);
 
     final bool started = await BlePlatform.instance.requestMtu(
@@ -701,8 +672,7 @@ final class BleDevice {
       '}';
 }
 
-final class _BleInitialValueTransformer<T>
-    extends StreamTransformerBase<T, T> {
+final class _BleInitialValueTransformer<T> extends StreamTransformerBase<T, T> {
   const new(this.initialValue);
 
   final T initialValue;
